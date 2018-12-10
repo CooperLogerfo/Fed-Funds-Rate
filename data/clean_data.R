@@ -3,6 +3,9 @@
 
 rm(list=ls())
 
+
+library(quantmod)
+
 raw_data <- read.csv("FF_data.csv")
 
 
@@ -12,3 +15,10 @@ date_matrix <- read.table(text = as.character(raw_data$date), sep = "/",
 
 
 data <- cbind(date_matrix, raw_data$value)
+
+
+getSymbols("^GSPC", src = "yahoo", from = '1950-01-01')
+chartSeries(GSPC)
+perc_change <- Delt(GSPC$GSPC.Open, GSPC$GSPC.Close)
+summary(perc_change$Delt.0.arithmetic)
+#export to RDS, use in sepearte R file
