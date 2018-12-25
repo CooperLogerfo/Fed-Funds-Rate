@@ -4,11 +4,14 @@ rm(list=ls())
 # ---------------------------------------------------------------------#
 # ----------------------------- PACKAGES ------------------------------#
 # ---------------------------------------------------------------------#
-library(quandl)   #Unemployment, GDP, Inflation, T Bonds
+library(Quandl)   #Unemployment, GDP, Inflation, T Bonds
 library(quantmod) #historic S&P data
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(lubridate)
+library(gridExtra)
+library(gganimate)
 
 
 # ---------------------------------------------------------------------#
@@ -29,7 +32,8 @@ q_delta <- Quandl("FRED/FEDFUNDS", api_key="2TpBKV-y2RxET2rG6Z2R",
 #monthly percent change
 m_delta <- Quandl("FRED/FEDFUNDS", api_key="2TpBKV-y2RxET2rG6Z2R", 
                   transform="rdiff", collapse="monthly")
-
+m_delta2  <- Quandl("FRED/FEDFUNDS", api_key="2TpBKV-y2RxET2rG6Z2R", 
+                    transform="rdiff", collapse="monthly")
 m_delta$Date <- as.character(m_delta$Date)
 
 m_delta <-
@@ -40,6 +44,10 @@ m_delta <-
 # ------------------ General Economic/Financial Data ------------------#
 #treasury yields, since 1990
 t_yields <- Quandl("USTREASURY/YIELD", api_key="2TpBKV-y2RxET2rG6Z2R")
+
+t_yields <-
+  t_yields %>%
+  mutate(year = year(Date), month = month(Date))
 
 #clean column names so they don't include numbers
 colnames(t_yields) <-  c("Date", "one_m", "two_m", "three_m", "six_m", 
@@ -63,9 +71,6 @@ plot(GSPC$delta)
 #   group_by(year, month) %>%
 #   slice(which.max(day))
 # 
-# t_yields <- 
-#   t_yields %>%
-#   mutate(year = year(Date), month = month(Date))
 # 
 # monthly_avg <-
 #   t_yields %>%
@@ -226,6 +231,7 @@ plot_yield_curve <- function(yields, date_range){
   
   plot <- ggplot(subset, aes(maturity, rate, color = highlight )) +
     geom_point() + 
+    geom_text(aes(label= period),hjust=0, vjust=0) +
     labs(title = 'Day:{closest_state}', x = "Time to Maturity", y = "Yield") +
     transition_states(subset$Date, transition_length = 11, state_length = 1)
   
@@ -246,13 +252,13 @@ rate_hike_cycles <- rate_incr(m_delta)
 #Check out T-Bonds first
 
 p1 <- ggplot(data = t_yields, aes(x = Date)) +
-  geom_line(aes(y = three_m))
+  geom_line(aes(y = three_m)) + labs(x = "Date", y = "3-Month Yield")
 p2 <- ggplot(data = t_yields, aes(x = Date)) +
-  geom_line(aes(y = two_y))
+  geom_line(aes(y = two_y)) + labs(x = "Date", y = "2-Year Yield")
 p3 <- ggplot(data = t_yields, aes(x = Date)) +
-  geom_line(aes(y = ten_y))
+  geom_line(aes(y = ten_y)) + labs(x = "Date", y = "10-Year Yield")
 p4 <- ggplot(data = t_yields, aes(x = Date)) +
-  geom_line(aes(y = thirty_y))
+  geom_line(aes(y = thirty_y)) + labs(x = "Date", y = "30-Year Yield")
 
 grid.arrange(p1, p2, p3, p4)
 
@@ -296,9 +302,18 @@ dates <- Rate_Hike %>%
 
 combined_df$Date <- dates$end
 
+ggplot(m_delta2, aes(Date, Value)) +
+  geom_point() +
+  labs(x = "Date", y = "Monthly Percent Change")
+  
+
 ggplot(combined_df, aes(as.factor(Date), percent_positive)) +
   geom_bar(stat = "identity", aes(fill = (as.numeric(index) %% 2 == 0))) +
   scale_fill_discrete(guide="none") +
+  scale_color_manual(name = 'Color', guid = 'legend',
+                      values =c('blue'='blue','red'='red'), 
+                     labels = c('rate hike','non rate hike')) +
+  labs(x = "Date Range", y = "Percentage of Days SP500 Was Positive") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
