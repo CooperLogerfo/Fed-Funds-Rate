@@ -60,5 +60,6 @@ GSPC$month <- format(index(GSPC),"%m")
 GSPC$day <- format(index(GSPC),"%d")
 
 #quarterly percent change in short term unemployment
-unem <- Quandl("FRED/NROUST", api_key="2TpBKV-y2RxET2rG6Z2R", transform="rdiff", collapse="quarterly")
+unem <- Quandl("FRED/NROUST", api_key="2TpBKV-y2RxET2rG6Z2R", 
+               transform="rdiff", collapse="quarterly")
 
