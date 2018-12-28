@@ -39,6 +39,10 @@ m_delta$Date <- as.character(m_delta$Date)
 m_delta <-
   m_delta %>%
   arrange(Date)
+
+#rate by month
+m_effr <- Quandl("FRED/FEDFUNDS", api_key="2TpBKV-y2RxET2rG6Z2R", 
+                 collapse="monthly")
   
 
 # ------------------ General Economic/Financial Data ------------------#
@@ -50,13 +54,16 @@ t_yields <-
   mutate(year = year(Date), month = month(Date))
 
 #clean column names so they don't include numbers
-colnames(t_yields) <-  c("Date", "one_m", "two_m", "three_m", "six_m", 
-                         "one_y", "two_y", "three_y", "five_y",
-                         "seven_y", "ten_y", "twenty_y", "thirty_y",
+colnames(t_yields) <-  c("Date", "one_month", "two_month", "three_month", "six_month", 
+                         "one_year", "two_year", "three_year", "five_year",
+                         "seven_year", "ten_year", "twenty_year", "thirty_year",
                          "year", "month" )
 
 #unemployment rate, since 1948
 unem <- Quandl("FRED/UNRATE", api_key="2TpBKV-y2RxET2rG6Z2R")
+
+#inflation rate, since 1914
+infl <- Quandl("RATEINF/INFLATION_USA", api_key="2TpBKV-y2RxET2rG6Z2R")
 
 #s&p percent change, daily, since 1950
 getSymbols("^GSPC", src = "yahoo", from = '1950-01-01')
@@ -217,11 +224,8 @@ percent_change_sp <- function(d, date_range){
 #1 year, 2 year, 3 year, 5 year, 7 year, 10 year, 30 year bond yields, data reported DAILY
 plot_yield_curve <- function(yields, date_range){
   subset <- subset_data(yields, c(date_range[1], date_range[2]) ) %>%
-    select(-two_m, -year, -month) %>%
+    select(-two_month, -year, -month) %>%
     gather(key = "period", value = "rate", -Date) %>%
-    mutate(highlight = ifelse(period == 'two_y' | period == 'three_y' | 
-                                period == 'five_y' | period == 'seven_y' | 
-                                period == 'ten_y' , T, F)) %>%
     mutate(maturity = c( rep(1/12, length(period)/11 ), rep(3/12, length(period)/11), 
                          rep(6/12, length(period)/11), rep(1, length(period)/11),
                          rep(2, length(period)/11), rep(3, length(period)/11), 
@@ -229,12 +233,12 @@ plot_yield_curve <- function(yields, date_range){
                          rep(10, length(period)/11 ), rep(20, length(period)/11), 
                          rep(30, length(period)/11)))
   
-  plot <- ggplot(subset, aes(maturity, rate, color = highlight )) +
+  plot <- ggplot(subset, aes(maturity, rate, color = as.factor(maturity))) +
     geom_point() + 
-    geom_text(aes(label= period),hjust=0, vjust=0) +
-    labs(title = 'Day:{closest_state}', x = "Time to Maturity", y = "Yield") +
+    labs(title = 'Day:{closest_state}', x = "Time to Maturity", y = "Yield", color = "Maturity (Years)") +
     transition_states(subset$Date, transition_length = 11, state_length = 1)
   
+  # geom_text(aes(label= period),hjust=0, vjust=0) +
   animate(plot, fps = 10, nframes = length(subset$period)/11*2)
 }
 
@@ -263,6 +267,25 @@ p4 <- ggplot(data = t_yields, aes(x = Date)) +
 grid.arrange(p1, p2, p3, p4)
 
 
+effr_infl <- infl %>% 
+  select(Date, infl_rate = Value) 
+
+effr_infl <- effr_infl[ 1:773,]
+
+effr_infl <- cbind(effr_infl, effr = m_effr$Value)
+
+#from 2009-10-31 to present
+effr_infl <- effr_infl[1:110,]
+
+plot_inf <- ggplot(data = effr_infl, aes(x = Date)) +
+  geom_line(aes(y = infl_rate, color = "infl_rate")) +
+  geom_line(aes(y = effr, color = "effr")) + 
+  scale_colour_manual(labels = c( "Fed Funds Rate", "Inflation"), 
+                      values = c("infl_rate"="blue", "effr"="red")) +
+  xlab("Date") + 
+  ylab("Rate") + 
+  labs(title="Fed Funds Rate and Inflation Rate", color = "Line")
+
 #Take a look at how 2 year and 5 year yields are converging during the most recent rate-hike cycle
 
 d <- subset_data(t_yields, c(rate_hike_cycles[28,1], rate_hike_cycles[28,2]  ) ) %>%
@@ -277,8 +300,8 @@ ggplot(data = d, aes(x = Date, y = rate)) +
 
 #Use plot_yield_curve function to produce animated plots 
 #displaying movement in the yield curve during rate-hike cycles
-plot_yield_curve(t_yields, c(rate_hike_cycles[28,1], rate_hike_cycles[28,2]  ))
-
+plot_yield_curve(t_yields, c(rate_hike_cycles[27,1], rate_hike_cycles[27,2]  ))
+anim_save("21_cycle.gif")
 #Other good examples showing flattening/inversion: row 23, 21, 20
 
 
